@@ -17,7 +17,7 @@
 struct Node
 {
     char label[64];
-    Node* children[64];
+    Node* children[2];
     int num_children;
 };
 
