@@ -154,6 +154,9 @@ void RunTest(const char* expr)
     if(tree == 0) {printf("Parse error.\n\n"); return;}
 
     bool last_child[128];
+    int i;
+    for(i = 0; i < 128; i++) last_child[i] = false;
+    
     PrintTree(tree, 0, last_child);
     printf("\n");
 
