@@ -116,7 +116,7 @@ Node* ParseExpr()
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-void PrintTree(Node* n, int depth, bool last_child[], int level)
+void PrintTree(Node* n, int depth, bool last_child[])
 {
     int i;
     // Print prefix
@@ -137,7 +137,7 @@ void PrintTree(Node* n, int depth, bool last_child[], int level)
     for(i = 0; i < n->num_children; i++)
     {
         last_child[depth] = (i == n->num_children - 1);
-        PrintTree(n->children[i], depth + 1, last_child, level + 1);
+        PrintTree(n->children[i], depth + 1, last_child);
     }
 }
 
