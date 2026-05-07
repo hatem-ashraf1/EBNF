@@ -20,35 +20,43 @@ struct Node
     Node* children[2];
     int num_children;
 
-    Node* first() {
+    Node* first()
+    {
         return children[0];
     }
 
-    Node* second() {
+    Node* second()
+    {
         return children[1];
     }
 
-    bool isID() {
+    bool isID()
+    {
         return label[0] != 'e' && label[0] >= 'a' && label[0] <= 'z';
     }
 
-    bool isInv() {
+    bool isInv()
+    {
         return strcmp(label, "inverse") == 0;
     }
 
-    bool isProd() {
+    bool isProd()
+    {
         return strcmp(label, "product") == 0;
     }
 
-    bool isE() {
+    bool isE()
+    {
         return label[0] == 'e';
     }
 
-    Node* copy() {
+    Node* copy()
+    {
         Node* n = (Node*)malloc(sizeof(Node));
         strcpy(n->label, label);
         n->num_children = num_children;
-        for (int i = 0; i < num_children; ++i) {
+        for (int i = 0; i < num_children; ++i)
+        {
             n->children[i] = children[i]->copy();
         }
         return n;
@@ -152,49 +160,56 @@ Node* ParseExpr()
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-bool AreEqualTrees(Node* t1, Node* t2) {
+bool AreEqualTrees(Node* t1, Node* t2)
+{
     if (strcmp(t1->label, t2->label) != 0) return false;
     if (t1->num_children != t2->num_children) return false;
-    bool equal = true;
-    for (int i = 0; i < t1->num_children; ++i) {
-        equal = AreEqualTrees(t1->children[i], t2->children[i]);
-        if (!equal) return false;
-    }
+    for (int i = 0; i < t1->num_children; ++i)
+        if (!AreEqualTrees(t1->children[i], t2->children[i])) 
+            return false;
     return true;
 }
 
-Node* Reduce(Node* t) {
-    if (t->isProd()) {
+Node* Reduce(Node* t)
+{
+    if (t->isProd())
+    {
         // e . x -> x
-        if (t->first()->isE()) {
+        if (t->first()->isE())
+        {
             Node *newT = t->second()->copy();
             FreeTree(t);
             return newT;
         }
         // x . e -> x
-        if (t->second()->isE()) {
+        if (t->second()->isE())
+        {
             Node *newT = t->first()->copy();
             FreeTree(t);
             return newT;
         }
         
         // x^1 . x -> e
-        if (t->first()->isInv() && AreEqualTrees(t->first()->first(), t->second())) {
+        if (t->first()->isInv() && AreEqualTrees(t->first()->first(), t->second()))
+        {
             FreeTree(t);
             return NewNode("e");
         }
         
         // x . x^1 -> e
-        if (t->second()->isInv() && AreEqualTrees(t->second()->first(), t->first())) {
+        if (t->second()->isInv() && AreEqualTrees(t->second()->first(), t->first()))
+        {
             FreeTree(t);
             return NewNode("e");
         }
 
         // y^-1 . (y . z) -> z
         // y . (y^-1 . z) -> z
-        if (t->second()->isProd()) {
+        if (t->second()->isProd())
+        {
             if (t->first()->isInv() && AreEqualTrees(t->first()->first(), t->second()->first()) ||
-                t->second()->first()->isInv() && AreEqualTrees(t->first(), t->second()->first()->first())) {
+                t->second()->first()->isInv() && AreEqualTrees(t->first(), t->second()->first()->first()))
+            {
                 Node *newT = t->second()->second()->copy();
                 FreeTree(t);
                 return newT;
@@ -202,7 +217,8 @@ Node* Reduce(Node* t) {
         }
 
         // (x . y) . z -> x . (y . z)
-        if (t->first()->isProd()) {
+        if (t->first()->isProd())
+        {
             Node *n = NewNode("product");
             AddChild(n, t->first()->first()->copy());
             Node *n2 = NewNode("product");
@@ -214,22 +230,26 @@ Node* Reduce(Node* t) {
         }
     }
 
-    if (t->isInv()) {
+    if (t->isInv())
+    {
         // e^-1 -> e
-        if (t->first()->isE()) {
+        if (t->first()->isE())
+        {
             FreeTree(t);
             return NewNode("e");
         }
 
         // (x^-1)^-1 -> x
-        if (t->first()->isInv()) {
+        if (t->first()->isInv())
+        {
             Node *n = t->first()->first()->copy();
             FreeTree(t);
             return n;
         }
         
         // (x . y)^-1 -> y^-1 . x^-1
-        if (t->first()->isProd()) {
+        if (t->first()->isProd())
+        {
             Node *n = NewNode("product");
             Node *n1 = NewNode("inverse");
             AddChild(n1, t->first()->second()->copy());
@@ -243,9 +263,11 @@ Node* Reduce(Node* t) {
     }
 
     Node *reducedChild;
-    for (int i = 0; i < t->num_children; ++i) {
+    for (int i = 0; i < t->num_children; ++i)
+    {
         reducedChild = Reduce(t->children[i]);
-        if (reducedChild) {
+        if (reducedChild)
+        {
             t->children[i] = reducedChild;
             return t;
         }
@@ -253,7 +275,7 @@ Node* Reduce(Node* t) {
     return 0;
 }
 
-void PrintTree(Node* n, int depth, bool last_child[])
+void PrintTreeRecursively(Node* n, int depth, bool last_child[])
 {
     int i;
     // Print prefix
@@ -274,27 +296,44 @@ void PrintTree(Node* n, int depth, bool last_child[])
     for(i = 0; i < n->num_children; i++)
     {
         last_child[depth] = (i == n->num_children - 1);
-        PrintTree(n->children[i], depth + 1, last_child);
+        PrintTreeRecursively(n->children[i], depth + 1, last_child);
     }
 }
 
-void PrintExp(Node* n, bool needParens) {
+void PrintTree(Node* n)
+{
+    bool last_child[128];
+    int i;
+    for(i = 0; i < 128; i++) last_child[i] = false;
+    PrintTreeRecursively(n, 0, last_child);
+}
+
+void PrintExp(Node* n, bool needParens)
+{
     if (needParens) printf("(");
     
-    if (n->isProd()) {
+    if (n->isProd())
+    {
         PrintExp(n->first(), n->first()->isProd());
         printf(".");
         PrintExp(n->second(), n->second()->isProd());
-    } else if (n->isInv()) {
-        if (n->first()->isProd() || n->first()->isInv()) {
+    } 
+    else if (n->isInv())
+    {
+        if (n->first()->isProd() || n->first()->isInv())
+        {
             printf("(");
             PrintExp(n->first(), false);
             printf(")^-1");
-        } else {
+        } 
+        else
+        {
             PrintExp(n->first(), false);
             printf("^-1");
         }
-    } else {
+    }
+    else
+    {
         printf("%s", n->label);
     }
     
@@ -322,7 +361,7 @@ void RunTest(const char* expr)
 
 
         printf("Parse tree:\n");
-        PrintTree(tree, 0, last_child);
+        PrintTree(tree);
         printf("\n");
 
         printf("Expression: ");
