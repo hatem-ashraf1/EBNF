@@ -336,6 +336,7 @@ void RunTest(const char* expr)
             tree = reducedTree;
         
     }
+    printf("--------------------------------\n\n");
     FreeTree(tree);
 }
 
@@ -366,6 +367,8 @@ int main()
     RunTest("((x.y)^-1.z)^-1");
     RunTest("(x^-1.y^-1)^-1");
     RunTest("e^-1.x");
+    RunTest("y^-1.(y.z)");
+    RunTest("y.(y^-1.z)");
 
     return 0;
 }
