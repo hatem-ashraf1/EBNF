@@ -22,12 +22,14 @@ struct Node
 
     Node* first()
     {
-        return children[0];
+        if (num_children > 0) return children[0];
+        return 0;
     }
 
     Node* second()
     {
-        return children[1];
+        if (num_children > 1) return children[1];
+        return 0;
     }
 
     bool isID()
@@ -189,14 +191,14 @@ Node* Reduce(Node* t)
             return newT;
         }
         
-        // x^1 . x -> e
+        // x^-1 . x -> e
         if (t->first()->isInv() && AreEqualTrees(t->first()->first(), t->second()))
         {
             FreeTree(t);
             return NewNode("e");
         }
         
-        // x . x^1 -> e
+        // x . x^-1 -> e
         if (t->second()->isInv() && AreEqualTrees(t->second()->first(), t->first()))
         {
             FreeTree(t);
@@ -355,11 +357,6 @@ void RunTest(const char* expr)
 
     while (true)
     {
-        bool last_child[128];
-        int i;
-        for(i = 0; i < 128; i++) last_child[i] = false;
-
-
         printf("Parse tree:\n");
         PrintTree(tree);
         printf("\n");
@@ -369,11 +366,8 @@ void RunTest(const char* expr)
         printf("\n\n");
 
         Node* reducedTree = Reduce(tree);
-        if (!reducedTree)
-            break;
-        else
-            tree = reducedTree;
-        
+        if (!reducedTree) break;
+        else tree = reducedTree;
     }
     printf("--------------------------------\n\n");
     FreeTree(tree);
