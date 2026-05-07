@@ -19,6 +19,41 @@ struct Node
     char label[64];
     Node* children[2];
     int num_children;
+
+    Node* first() {
+        return children[0];
+    }
+
+    Node* second() {
+        return children[1];
+    }
+
+    bool isID() {
+        return label[0] != 'e' && label[0] >= 'a' && label[0] <= 'z';
+    }
+
+    bool isInv() {
+        return strcmp(label, "inverse") == 0;
+    }
+
+    bool isProd() {
+        return strcmp(label, "product") == 0;
+    }
+
+    bool isE() {
+        return label[0] == 'e';
+    }
+
+    Node* copy() {
+        Node* n = (Node*)malloc(sizeof(Node));
+        strcpy(n->label, label);
+        n->num_children = num_children;
+        for (int i = 0; i < num_children; ++i) {
+            n->children[i] = children[i]->copy();
+        }
+        return n;
+    }
+
 };
 
 //////////////////////////////////////////////////////////////////////////////////////////
@@ -66,7 +101,8 @@ Node* ParseBase()
         return inner;
     }
 
-    // Must be a variable (single letter)
+    // Must be a var or e
+
     if((input[pos] >= 'a' && input[pos] <= 'z'))
     {
         char label[2]; label[0] = input[pos]; label[1] = 0;
@@ -116,6 +152,107 @@ Node* ParseExpr()
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
+bool AreEqualTrees(Node* t1, Node* t2) {
+    if (strcmp(t1->label, t2->label) != 0) return false;
+    if (t1->num_children != t2->num_children) return false;
+    bool equal = true;
+    for (int i = 0; i < t1->num_children; ++i) {
+        equal = AreEqualTrees(t1->children[i], t2->children[i]);
+        if (!equal) return false;
+    }
+    return true;
+}
+
+Node* Reduce(Node* t) {
+    if (t->isProd()) {
+        // e . x -> x
+        if (t->first()->isE()) {
+            Node *newT = t->second()->copy();
+            FreeTree(t);
+            return newT;
+        }
+        // x . e -> x
+        if (t->second()->isE()) {
+            Node *newT = t->first()->copy();
+            FreeTree(t);
+            return newT;
+        }
+        
+        // x^1 . x -> e
+        if (t->first()->isInv() && AreEqualTrees(t->first()->first(), t->second())) {
+            FreeTree(t);
+            return NewNode("e");
+        }
+        
+        // x . x^1 -> e
+        if (t->second()->isInv() && AreEqualTrees(t->second()->first(), t->first())) {
+            FreeTree(t);
+            return NewNode("e");
+        }
+
+        // y^-1 . (y . z) -> z
+        // y . (y^-1 . z) -> z
+        if (t->second()->isProd()) {
+            if (t->first()->isInv() && AreEqualTrees(t->first()->first(), t->second()->first()) ||
+                t->second()->first()->isInv() && AreEqualTrees(t->first(), t->second()->first()->first())) {
+                Node *newT = t->second()->second()->copy();
+                FreeTree(t);
+                return newT;
+            }
+        }
+
+        // (x . y) . z -> x . (y . z)
+        if (t->first()->isProd()) {
+            Node *n = NewNode("product");
+            AddChild(n, t->first()->first()->copy());
+            Node *n2 = NewNode("product");
+            AddChild(n2, t->first()->second()->copy());
+            AddChild(n2, t->second()->copy());
+            AddChild(n, n2);
+            FreeTree(t);
+            return n;
+        }
+    }
+
+    if (t->isInv()) {
+        // e^-1 -> e
+        if (t->first()->isE()) {
+            FreeTree(t);
+            return NewNode("e");
+        }
+
+        // (x^-1)^-1 -> x
+        if (t->first()->isInv()) {
+            Node *n = t->first()->first()->copy();
+            FreeTree(t);
+            return n;
+        }
+        
+        // (x . y)^-1 -> y^-1 . x^-1
+        if (t->first()->isProd()) {
+            Node *n = NewNode("product");
+            Node *n1 = NewNode("inverse");
+            AddChild(n1, t->first()->second()->copy());
+            Node *n2 = NewNode("inverse");
+            AddChild(n2, t->first()->first()->copy());
+            AddChild(n, n1);
+            AddChild(n, n2);
+            FreeTree(t);
+            return n;
+        }
+    }
+
+    Node *reducedChild;
+    for (int i = 0; i < t->num_children; ++i) {
+        reducedChild = Reduce(t->children[i]);
+        if (reducedChild) {
+            t->children[i] = reducedChild;
+            return t;
+        }
+    }
+    return 0;
+}
+
 void PrintTree(Node* n, int depth, bool last_child[])
 {
     int i;
@@ -141,25 +278,64 @@ void PrintTree(Node* n, int depth, bool last_child[])
     }
 }
 
+void PrintExp(Node* n, bool needParens) {
+    if (needParens) printf("(");
+    
+    if (n->isProd()) {
+        PrintExp(n->first(), n->first()->isProd());
+        printf(".");
+        PrintExp(n->second(), n->second()->isProd());
+    } else if (n->isInv()) {
+        if (n->first()->isProd() || n->first()->isInv()) {
+            printf("(");
+            PrintExp(n->first(), false);
+            printf(")^-1");
+        } else {
+            PrintExp(n->first(), false);
+            printf("^-1");
+        }
+    } else {
+        printf("%s", n->label);
+    }
+    
+    if (needParens) printf(")");
+}
+
+
 //////////////////////////////////////////////////////////////////////////////////////////
 
 // Test cases
 void RunTest(const char* expr)
 {
+    Node* tree;
     printf("Input: %s\n", expr);
     input = expr;
     pos = 0;
-
-    Node* tree = ParseExpr();
+    tree = ParseExpr();
     if(tree == 0) {printf("Parse error.\n\n"); return;}
 
-    bool last_child[128];
-    int i;
-    for(i = 0; i < 128; i++) last_child[i] = false;
-    
-    PrintTree(tree, 0, last_child);
-    printf("\n");
+    while (true)
+    {
+        bool last_child[128];
+        int i;
+        for(i = 0; i < 128; i++) last_child[i] = false;
 
+
+        printf("Parse tree:\n");
+        PrintTree(tree, 0, last_child);
+        printf("\n");
+
+        printf("Expression: ");
+        PrintExp(tree, false);
+        printf("\n\n");
+
+        Node* reducedTree = Reduce(tree);
+        if (!reducedTree)
+            break;
+        else
+            tree = reducedTree;
+        
+    }
     FreeTree(tree);
 }
 
